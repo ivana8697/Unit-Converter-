@@ -1,0 +1,72 @@
+Ivana Licakova
+HW 3
+
+
+For this assignment I started off by just trying to map everything out and
+set up the structure of my code. I thought to do a main convert function and
+many small helper functions to do extracting of values, dealing with lists,
+and calculations. I first thought to split it into two parts, first to check
+if the units will convert to each other, second to do the conversions and
+calculations. 
+
+To check if the units will convert I made a "get-elem-list" function that
+will go through the list of units and use the "get-elem" helper function for
+each to extract the elemental unit and the exponent. It creates a list
+similar to unit-list but with elemental base units. I had some trouble here
+with assoc and trying to use car/cdr to get the value I needed. I figured out
+when using assoc there is a key and a value and even with the format of the
+data I needed to use nested lets to access the inner parts of an entry like
+(in (0.0254 (m 1))) for example where assoc has "in" as the key
+and (0.0254 (m 1)) as the value and you cannot access the inside unless you
+nest the lets. The two elemental lists can then be passed to "units-match?"
+which uses assoc to check each unit in the elemental unit list and see if the
+other one contains it as well as the same exponent. Using assoc will make
+sure that order doesnt matter. 
+
+For the second part I did calculations and as was shown U = (u/v) V
+where we see that for example: 1 in = 0.0254 m and 1 cm = 0.01 m if we want
+to represent "in" in terms of "cm", 1 inch = x cm , by using substitution we
+get 0.0254 m = x (0.01 m / 1) and therefore x = 0.0254 / 0.01 cm. To tackle
+the calculations with unit lists and positive or negative exponents I made
+two helper functions "numerator" and "denom" to the "calc" function I also
+made a helpful list that includes the conversion values with the exponents
+from the unit list. I used this conversions list in the numerator and denom
+functions to check it recursively and if the exponent is pos/neg denoting if
+its num/den then it is multiplied together. Here I had some trouble and could
+not get my recursive multiplication to work and then I realized that my when 
+my "loop" got to the end of a list and it is null (where it breaks the loop)
+I made that if condition equal to '(). I then realize that it would end up
+evaluating to something like (* 3 '()) which is incorrect in scheme. I then
+changed the if condition to equal 1 since in multiplication multiplying by 1
+will not change the answer. Then my calc function just calculate the answer 
+with num and denom values and it does not have to deal with a list. 
+
+I also slipped up with car/cdr sometimes and realized that I was not going
+deep enough into a list because something like (3) is not equal to 3, that
+needs an extra car to reach the value 3.
+
+After doing many tests I realized I did not account for if the base unit to
+convert from/to was already an elemental unit. I had to change my
+"get-elem" that gets the elemental base a base converts to which searched
+through the data with assoc, I fixed it by adding an if statement using assoc
+in the beginning to check if the base unit is in the data lookup at all and
+if it is not we assume that it is already an elemental base unit. Here we are
+assuming the input is always correct and matches the data. I also changed
+my "get-conv-val" that gets the conversion value, in a similar way to
+get-elem and return 1 for the conversion value if it is elemental.
+
+I also did not adjust for powers higher than 1, so I added a "power" and
+"power-list" function to take the conversions list and multiply the
+conversion value by itself in a loop until it reaches the given power. I then
+had issues and realized I need to account for negative powers as well so I
+added an if condition that makes a positive power decrement and a negative
+power increment until they reach 0.
+
+I also added a counter to address '((m 1) (sec -1) (m 1)) = '((m 2) (sec -1))
+so if the exponents added up in each list are equal and my units-match? is
+true then it will be evaluated.
+
+I made many tests and tried to address all corner cases I could think of. It
+is necessary to use ' in the testing since we have not defined the lists and
+want to just plug in to the function.
+

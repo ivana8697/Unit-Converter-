@@ -1,0 +1,218 @@
+;;take input in form (convert <quantity1> <unit-list2>)
+;;example: (convert '(27.5 (furlong 1)(fortnight -1)) '((mi 1)(hr -1)))
+;;then output is <quantity2>
+;;example: (0.01023065476190476 (mi 1)(hr -1))
+
+
+;;part 1: are they compatible?
+         ;;example: 3 in to cm
+         ;;in -> m and cm -> m so both are length and have same elem units
+         ;;also ex: 2 (in 2) to (cm 1) will not work has to be the same
+         ;;exponents. (m 1)(sec -2) is entirely equivalent to (sec -2)(m 1)
+         ;;or even to (sec -1)(m 2)(sec -1)(m -1).
+           ;;1a: use assoc on the list of elementary units to see if match
+           ;;1b: add up the powers and compare if both match
+
+
+;;part 2: if yes convert quantity1 to quantity2 by using the elementary units
+         ;;example: 3 in to cm
+         ;; 1 in = 0.0254 m
+         ;; 1 cm = 0.01 m  ,so
+         ;; 3 * 0.0254 in = 0.0762 m
+         ;; 0.0762 m / 0.01 m = 7.62 cm
+
+
+;;account for derived units
+
+;;test cases:
+;;==>(convert '(2 (in 1)) '((m 1)))
+;;(0.0508 (m 1))  works
+;;==> (convert '(2 (cm 2)) '((mm 2)))
+;;(200 (mm 2))  works
+;;==> (convert '(3 (in 1)(g 1)(in 1)) '((cm 2)(kg 1)))
+;;(0.0193548 (cm 2) (kg 1))
+;;
+
+
+;;-------------------------------------------------------
+
+(define (convert quantity1 unit-list2)
+  (let ((unit-list1 (cdr quantity1)) ;;unit list from quantity1
+	(val1 (car quantity1))) ;;value from quantity1
+    (let ((elem1 (get-elem-list unit-list1)) ;;list of elemental units
+	  (elem2 (get-elem-list unit-list2)) ;;list of elemental units
+	  (convert1 (get-conv-list unit-list1));;helper list of what
+	  ;;their conversion values are and their exponent to be used
+	  ;;in the calculation procedure
+	  (convert2 (get-conv-list unit-list2)))
+      (if (and (units-match? elem1 elem2) (= (counter elem1) (counter elem2)))
+	  (cons (* val1 (calc convert1 convert2)) unit-list2)
+	  (error "Cannot convert these units")))))
+	  
+
+
+
+;;-------------------------------------------------------
+
+;;helper function to the "get-elem-list" function for each individual
+;;elementary unit
+
+(define (get-elem base-unit)
+  ;;data file entry is in form (in (0.0254 (m 1)))
+
+  (if (assoc (car base-unit) source)  ;;check if not already elemental unit
+      (let ((a (assoc (car base-unit) source)))  ;;search through source
+	(let((b (cadr a)))
+	  ;; (let((c (cadr b)))
+	  (b)))
+      (car base-unit))) ;;if false/cant find in list then return the value itself
+
+
+;;tested: works
+;;==> (get-elem '(in))
+;;m
+;;==> (get-elem '(sec))
+;;sec
+
+;;--------------------------------------------------------
+
+;;helper function to get the whole list of elementary units
+(define (get-elem-list unit-list)
+  (if (null? unit-list)
+      '()
+      (cons (cons (get-elem (car unit-list)) (cdr(car unit-list)))
+	    (get-elem-list(cdr unit-list)))))
+
+
+;;tested: works
+;;==> (get-elem-list '((in 1)(g 1)))
+;;((m 1) (kg 1))
+
+;;--------------------------------------------------------
+
+;;helper function to see if elem units match (U-normalized = V-normalized)
+;;and if they have the same exponents
+(define (units-match? elem1 elem2)
+  (if (null? elem1)
+      #t
+      (if (assoc (caar elem1) elem2);;is unit in 2nd list
+	  (units-match? (cdr elem1) elem2) ;;loop
+	  #f)))
+
+
+;;helper for units-match?
+;;example: '((m 1) (sec -1) (m 1)) = '((m 2) (sec -1))
+(define (counter elem-list)
+  (if (null? elem-list)
+      0
+      (+ (cadar elem-list) (counter (cdr elem-list)))))
+
+;;tested:
+;;==> (units-match? '((in 1)(g 1)) '((g 1)(in 1)))
+;;#t
+;;==> (units-match? '((in 2)(g 1)) '((g 1)(in 1)))
+;;#f
+;;
+
+;;--------------------------------------------------------
+;;helper function to get elemental value thats equal to one base unit
+(define (get-conv-val base-unit)
+  ;;data file entry is in form (in (0.0254 (m 1)))
+
+  (if (assoc (car base-unit) source) ;;if not elem base already
+      (let ((a (assoc (car base-unit) source))) 
+	(let((b (cadr a)))
+	  (car b)))
+      1)) ;;if it is elemental base already just use 1 as value
+      
+
+;;tested: works
+;;
+;;==> (get-conv-val '(in))
+;;0.0254
+;;==> (get-conv-val '(m))
+;;1
+
+;;--------------------------------------------------------
+
+;;helper function to get the whole list of the elementary conversion values
+;; it includes the exponent for use in calculations
+(define (get-conv-list unit-list)
+  (if (null? unit-list)
+      '()
+      (cons (cons (get-conv-val (car unit-list)) (cdr(car unit-list)))
+	    (get-conv-list(cdr unit-list)))))
+
+
+;;tested: works
+;;==> (get-conv-list '((in 1)(g 1)))
+;;((0.0254 1) (0.001 1))     
+
+;;--------------------------------------------------------
+
+;;helper functions for the calculations
+
+;;helper to get a number ^ power
+(define (power number pow)
+  (if (positive? pow)  
+      (if (= pow 0)
+	  1
+	  (* (car number) (power number (- pow 1))))
+      (if (= pow 0) ;;else if negative reverse counter
+	  1
+	  (* (car number) (power number (+ pow 1))))))
+	  
+
+;;helper to make the conv-list account for powers
+(define (power-list conv-list)
+  (if (null? conv-list)
+      '()
+      (cons
+       (cons
+	(power (car conv-list) (cadar conv-list))
+	(cadar conv-list))
+       (power-list (cdr conv-list)))))
+  
+
+;;gets the numerator by recursivley multiplying the positive exponents
+(define (numerator conv-list)
+  (if (null? conv-list)
+	1
+	(if (positive? (cdar conv-list)) ;;account for powers
+	    (* (caar conv-list) (numerator (cdr conv-list)))
+	    (numerator (cdr conv-list)))))
+
+
+;;gets the denominator by recursivley multiplying the negative exponents	    
+(define (denom conv-list)
+    (if (null? conv-list)
+	1
+	(if (negative? (cdar conv-list))
+	    (* (caar conv-list) (denom (cdr conv-list)))
+	    (denom (cdr conv-list)))))
+
+;;calculation
+(define (calc conv-list1 conv-list2)
+  (let ((pow1 (power-list conv-list1))
+	(pow2 (power-list conv-list2)))
+    (let ((num1 (numerator pow1))
+	  (den1 (denom pow1))
+	  (num2 (numerator pow2))
+	  (den2 (denom pow2)))
+      (/(/ num1 den1) (/ num2 den2)))))
+      
+
+
+;;--------------------------------------------------------
+
+;; read-file produces a list whose elements are the expressions in the file.
+
+(define (read-file)
+  (let ((expr (read)))
+    (if (eof-object? expr)
+        '()
+        (cons expr (read-file)))))
+
+;; Here we go:  read in the database.
+
+(define source (with-input-from-file "units.dat" read-file))
